@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI UI Forge | Aesthetic Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(30px, -50px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.9); } }
+      @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .bg-blob { animation: float 15s ease-in-out infinite; }
+      .animate-in { animation: fade-in 0.5s ease-out forwards; }
+      body { background-color: #0f172a; color: #94a3b8; transition: background 0.3s ease; }
+      .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col items-center p-6 md:p-12 font-sans overflow-x-hidden animate-in">
+    
+    <div id="interactive-bg" class="fixed inset-0 -z-10 overflow-hidden bg-[#0f172a]">
+      <div class="bg-blob absolute top-10 left-10 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl"></div>
+      <div class="bg-blob absolute bottom-10 right-10 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl" style="animation-delay: -5s"></div>
+      <div class="bg-blob absolute top-1/2 left-1/2 w-72 h-72 bg-purple-600/10 rounded-full blur-3xl" style="animation-delay: -10s"></div>
+    </div>
+
+    <div class="max-w-2xl w-full">
+      <h1 class="text-4xl font-black text-slate-100 mb-2 tracking-tight">AI UI Forge</h1>
+      <p class="text-slate-400 mb-8 font-medium">Refining your interface with dark, subtle, and animated precision.</p>
+
+      <div class="mb-6 p-5 glass rounded-2xl shadow-2xl transition-all duration-500 hover:scale-[1.01]">
+        <label class="block text-xs font-bold text-slate-300 mb-3 uppercase tracking-widest">Project Workspace</label>
+        <input id="zipInput" type="file" accept=".zip" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-slate-700 file:text-slate-200 hover:file:bg-slate-600 transition-all cursor-pointer" />
+      </div>
+
+      <div class="glass rounded-3xl shadow-2xl flex flex-col h-[500px] overflow-hidden transition-all duration-500">
+        <div id="messages" class="flex-1 p-6 overflow-y-auto space-y-4">
+          <div class="text-slate-500 text-sm italic animate-in">System: Ready to refine the UI.</div>
+        </div>
+        <div class="p-4 border-t border-slate-700/50 flex gap-3 bg-slate-900/40">
+          <input id="chatInput" type="text" placeholder="Describe your UI changes..." class="flex-1 px-5 py-3 bg-slate-800/80 border border-slate-700 rounded-full text-sm text-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all" />
+          <button id="sendBtn" class="px-6 py-3 bg-slate-700 text-slate-200 rounded-full text-sm font-bold hover:bg-emerald-700 hover:text-white hover:scale-[1.02] active:scale-[0.98] transition-all">Generate</button>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <button id="downloadBtn" disabled class="w-full py-4 px-6 bg-slate-800 text-slate-400 rounded-2xl font-bold transition-all duration-500 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          Export Updated Codebase
+        </button>
+      </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+      const chatInput = document.getElementById('chatInput');
+      const sendBtn = document.getElementById('sendBtn');
+      const messagesDiv = document.getElementById('messages');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const zipInput = document.getElementById('zipInput');
+      const bg = document.getElementById('interactive-bg');
+      const API_BASE = 'http://127.0.0.1:8000';
+      let lastDownloadId = null;
+
+      // Mouse interactive background
+      document.addEventListener('mousemove', (e) => {
+        const x = e.clientX / window.innerWidth;
+        const y = e.clientY / window.innerHeight;
+        bg.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, #1e293b, #0f172a)`;
+      });
+
+      function addMessage(text, isUser) {
+        const msg = document.createElement('div');
+        msg.className = `flex ${isUser ? 'justify-end' : 'justify-start'} animate-in`;
+        msg.innerHTML = `<div class="max-w-[85%] px-5 py-3 rounded-2xl text-sm ${isUser ? 'bg-emerald-900 text-emerald-100 rounded-br-none' : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'}">${marked.parse(text)}</div>`;
+        messagesDiv.appendChild(msg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      async function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        addMessage(text, true);
+        chatInput.value = '';
+        const formData = new FormData();
+        formData.append('message', text);
+        if (zipInput.files[0]) formData.append('project_file', zipInput.files[0]);
+        
+        try {
+          const res = await fetch(`${API_BASE}/api/chat`, { method: "POST", body: formData });
+          const data = await res.json();
+          if (data.download_id) {
+            lastDownloadId = data.download_id;
+            downloadBtn.disabled = false;
+            downloadBtn.className = "w-full py-4 px-6 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg shadow-emerald-900/20 hover:bg-emerald-500 transition-all";
+            downloadBtn.textContent = `Export Updated Files (${data.updated_file_count})`;
+          }
+          addMessage(data.reply, false);
+        } catch (e) { addMessage("Connection error.", false); }
+      }
+
+      sendBtn.addEventListener('click', sendMessage);
+      chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+      downloadBtn.addEventListener('click', () => { if (lastDownloadId) window.location.href = `${API_BASE}/api/download/${lastDownloadId}`; });
+    </script>
+  </body>
+</html>
