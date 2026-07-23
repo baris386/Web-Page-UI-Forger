@@ -15,7 +15,12 @@ from fastapi.responses import FileResponse
 
 
 load_dotenv()
-api_key = os.getenv("Gemini_Api")
+api_key = os.getenv("Gemini_Api") or os.getenv("GEMINI_API_KEY")
+
+if not api_key:
+    print("XƏTA: Gemini_Api environment variable Vercel-də tapılmadı!")
+else:
+    client = genai.Client(api_key=api_key)
 
 # Create Gemini client
 client = genai.Client(api_key=api_key)
